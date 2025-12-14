@@ -13,7 +13,7 @@ public class Department {
     private Long id;
 
     @Column(nullable = false)
-    private String name; // e.g., "Cardiology", "Neurology"
+    private String name;
 
     private String description;
 

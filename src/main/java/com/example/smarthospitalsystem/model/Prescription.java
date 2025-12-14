@@ -19,10 +19,9 @@ public class Prescription {
 
     private String diagnosis;
 
-    // This data will eventually come from your External API (e.g., "Amoxicillin")
     private String medicineName;
 
-    private String dosage; // e.g., "500mg twice daily"
+    private String dosage;
 
     private String notes;
 }
