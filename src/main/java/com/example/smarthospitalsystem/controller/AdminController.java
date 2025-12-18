@@ -2,7 +2,9 @@ package com.example.smarthospitalsystem.controller;
 
 import com.example.smarthospitalsystem.model.*;
 import com.example.smarthospitalsystem.repository.*;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,30 +20,60 @@ public class AdminController {
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private PasswordEncoder passwordEncoder;
 
-    // --- USER MANAGEMENT ---
+    // Regex for Password: 8+ chars, 1 Upper, 1 Number, 1 Special
+    private final String PASS_REGEX = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$";
+
+    // --- USER MANAGEMENT (Patients & Admins) ---
 
     @GetMapping("/users")
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
+    // 1. Create Patient with CHECKS
     @PostMapping("/patients")
-    public User createPatient(@RequestBody User user) {
+    public ResponseEntity<?> createPatient(@Valid @RequestBody User user) {
+        // A. Uniqueness Check
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            return ResponseEntity.badRequest().body("{\"error\": \"Username is already taken!\"}");
+        }
+
+        // B. Password Strength Check
+        if (!user.getPassword().matches(PASS_REGEX)) {
+            return ResponseEntity.badRequest().body("{\"error\": \"Weak Password: Needs 8+ chars, 1 Upper, 1 Number, 1 Special (!@#$%).\"}");
+        }
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setRole(User.Role.PATIENT);
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        return ResponseEntity.ok(savedUser);
     }
 
+    // 2. Update User with CHECKS
     @PutMapping("/users/{id}")
-    public User updateUser(@PathVariable Long id, @RequestBody User details) {
-        User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
-        user.setFullName(details.getFullName());
+    public ResponseEntity<?> updateUser(@PathVariable Long id, @Valid @RequestBody User details) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // A. Uniqueness Check (Only if username changed)
+        if (!user.getUsername().equals(details.getUsername())) {
+            if (userRepository.findByUsername(details.getUsername()).isPresent()) {
+                return ResponseEntity.badRequest().body("{\"error\": \"Username is already taken!\"}");
+            }
+        }
         user.setUsername(details.getUsername());
-        // Only update password if a new one is sent
+        user.setFullName(details.getFullName());
+
+        // B. Password Check (Only if password is being updated)
         if (details.getPassword() != null && !details.getPassword().isEmpty()) {
+            if (!details.getPassword().matches(PASS_REGEX)) {
+                return ResponseEntity.badRequest().body("{\"error\": \"Weak Password: Needs 8+ chars, 1 Upper, 1 Number, 1 Special (!@#$%).\"}");
+            }
             user.setPassword(passwordEncoder.encode(details.getPassword()));
         }
-        return userRepository.save(user);
+
+        return ResponseEntity.ok(userRepository.save(user));
     }
 
     @DeleteMapping("/users/{id}")
@@ -56,9 +88,19 @@ public class AdminController {
         return doctorRepository.findAll();
     }
 
-
+    // 3. Create Doctor with CHECKS
     @PostMapping("/doctors")
-    public Doctor createDoctor(@RequestBody DoctorRequest request) {
+    public ResponseEntity<?> createDoctor(@Valid @RequestBody DoctorRequest request) {
+        // A. Uniqueness Check
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            return ResponseEntity.badRequest().body("{\"error\": \"Username is already taken!\"}");
+        }
+
+        // B. Password Strength Check
+        if (!request.getPassword().matches(PASS_REGEX)) {
+            return ResponseEntity.badRequest().body("{\"error\": \"Weak Password: Needs 8+ chars, 1 Upper, 1 Number, 1 Special (!@#$%).\"}");
+        }
+
         User user = new User();
         user.setFullName(request.getFullName());
         user.setUsername(request.getUsername());
@@ -74,31 +116,35 @@ public class AdminController {
         doctor.setDepartment(dept);
         doctor.setSpecialization(request.getSpecialization());
 
-        return doctorRepository.save(doctor);
+        return ResponseEntity.ok(doctorRepository.save(doctor));
     }
 
+    // 4. Update Doctor (Handles Dept/Spec/Name)
     @PutMapping("/doctors/{id}")
-    public Doctor updateDoctor(@PathVariable Long id, @RequestBody DoctorRequest request) {
-        Doctor doctor = doctorRepository.findById(id).orElseThrow(() -> new RuntimeException("Doctor not found"));
+    public ResponseEntity<?> updateDoctor(@PathVariable Long id, @Valid @RequestBody DoctorRequest request) {
+        Doctor doctor = doctorRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Doctor not found"));
 
-        // Update Department
+        // Note: We typically don't update Username/Password here (handled in updateUser),
+        // but we DO update the Full Name.
+
         if(request.getDepartmentId() != null) {
             Department dept = departmentRepository.findById(request.getDepartmentId())
                     .orElseThrow(() -> new RuntimeException("Department not found"));
             doctor.setDepartment(dept);
         }
 
-        // Update Specialization
-        if(request.getSpecialization() != null) doctor.setSpecialization(request.getSpecialization());
+        if(request.getSpecialization() != null) {
+            doctor.setSpecialization(request.getSpecialization());
+        }
 
-        // Update Basic User Info (Name)
         if(request.getFullName() != null) {
             User user = doctor.getUser();
             user.setFullName(request.getFullName());
             userRepository.save(user);
         }
 
-        return doctorRepository.save(doctor);
+        return ResponseEntity.ok(doctorRepository.save(doctor));
     }
 
     // --- DEPARTMENT MANAGEMENT ---
@@ -114,5 +160,15 @@ public class AdminController {
         dept.setName(details.getName());
         dept.setDescription(details.getDescription());
         return departmentRepository.save(dept);
+    }
+    @DeleteMapping("/departments/{id}")
+    public ResponseEntity<?> deleteDepartment(@PathVariable Long id) {
+        // Optional: Check if doctors are assigned to this dept first
+        if (!doctorRepository.findByDepartmentId(id).isEmpty()) {
+            return ResponseEntity.badRequest().body("{\"error\": \"Cannot delete: Doctors are assigned to this department.\"}");
+        }
+
+        departmentRepository.deleteById(id);
+        return ResponseEntity.ok().build();
     }
 }

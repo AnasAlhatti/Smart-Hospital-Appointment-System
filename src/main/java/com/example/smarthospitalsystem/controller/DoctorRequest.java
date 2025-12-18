@@ -3,7 +3,7 @@ package com.example.smarthospitalsystem.controller;
 import lombok.Data;
 
 @Data
-public class DoctorRequest {
+class DoctorRequest {
     private String fullName;
     private String username;
     private String password;

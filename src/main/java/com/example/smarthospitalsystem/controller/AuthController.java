@@ -34,13 +34,26 @@ public class AuthController {
 
     // Handle Register Logic
     @PostMapping("/register")
-    public String registerUser(@ModelAttribute User user) {
-        // Encrypt password before saving
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        // Default role
-        user.setRole(User.Role.PATIENT);
+    public String registerUser(@ModelAttribute com.example.smarthospitalsystem.model.User user, org.springframework.ui.Model model) {
+        // 1. Check if Username Exists
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            model.addAttribute("error", "Username is already taken!");
+            return "register"; // Send them back to register page
+        }
 
+        // 2. Validate Password Strength (Regex)
+        // (At least 8 chars, 1 Upper, 1 Number, 1 Special)
+        String passRegex = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!]).{8,}$";
+        if (!user.getPassword().matches(passRegex)) {
+            model.addAttribute("error", "Password is too weak. Needs 8+ chars, 1 Upper, 1 Number, 1 Special Char.");
+            return "register";
+        }
+
+        // 3. Save
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setRole(com.example.smarthospitalsystem.model.User.Role.PATIENT);
         userRepository.save(user);
-        return "redirect:/login?success";
+
+        return "redirect:/login";
     }
 }

@@ -27,6 +27,11 @@ public class APIController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired private com.example.smarthospitalsystem.service.DrugApiService drugApiService;
+
+    @Autowired private PrescriptionRepository prescriptionRepository;
+
     // 1. Get List of Departments
     @GetMapping("/departments")
     public List<Department> getAllDepartments() {
@@ -79,6 +84,44 @@ public class APIController {
 
         return appointmentService.save(appointment); // We need to add 'save' or just use repo
     }
+
+    // 7. [Doctor Only] Create Prescription with External API Data
+    @PostMapping("/prescriptions")
+    public Prescription createPrescription(@RequestBody PrescriptionRequest request) {
+        // Find Appointment
+        Appointment appointment = appointmentService.getAppointmentById(request.getAppointmentId());
+
+        // 1. Fetch official info from External API (OpenFDA)
+        String fdaInfo = drugApiService.getDrugInfo(request.getMedicineName());
+
+        // 2. Create Prescription
+        Prescription prescription = new Prescription();
+        prescription.setAppointment(appointment);
+        prescription.setMedicineName(request.getMedicineName());
+        prescription.setDosage(request.getDosage());
+        prescription.setDiagnosis(request.getDiagnosis());
+        // Save the API data into the notes
+        prescription.setNotes("FDA INFO: " + fdaInfo);
+
+        // 3. Mark appointment as COMPLETED
+        appointment.setStatus(Appointment.Status.COMPLETED);
+        appointmentService.save(appointment);
+
+        return prescriptionRepository.save(prescription);
+    }
+
+    // 8. [Public/Doctor] Search for drugs (Autocomplete)
+    @GetMapping("/drugs/search")
+    public List<String> searchDrugs(@RequestParam String query) {
+        return drugApiService.searchDrugs(query);
+    }
+
+    // 9. [Patient] Get My Prescriptions (Diagnoses)
+    @GetMapping("/my-prescriptions")
+    public List<Prescription> getMyPrescriptions(Authentication authentication) {
+        return prescriptionRepository.findByPatientUsername(authentication.getName());
+    }
+
     @GetMapping("/auth/me")
     public User getCurrentUser(Authentication authentication) {
         // Return the full user object (ensure password is excluded in a real app, but fine for now)
@@ -91,4 +134,12 @@ public class APIController {
 class AppointmentRequest {
     private Long doctorId;
     private LocalDateTime dateTime;
+}
+
+@lombok.Data
+class PrescriptionRequest {
+    private Long appointmentId;
+    private String diagnosis;
+    private String medicineName;
+    private String dosage;
 }
