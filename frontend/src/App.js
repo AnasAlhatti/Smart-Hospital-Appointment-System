@@ -2,8 +2,9 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
+// Components
 import Navbar from './components/Navbar';
-import Dashboard from './components/Dashboard';
+import Dashboard from './components/Dashboard'; // Handles Guest vs Patient vs Redirects
 import Booking from './components/Booking';
 import MyAppointments from './components/MyAppointments';
 import DoctorDashboard from './components/DoctorDashboard';
@@ -15,10 +16,14 @@ function App() {
         <Router>
             <Navbar />
             <Routes>
-                {/* Public/Smart Dashboard (Redirects handled inside Dashboard.js) */}
+                {/* ROOT ROUTE ('/'):
+                  - If Guest -> Shows Landing Page
+                  - If Patient -> Shows Department/Doctor List
+                  - If Doctor/Admin -> Redirects to their dashboards
+                */}
                 <Route path="/" element={<Dashboard />} />
 
-                {/* PATIENT ONLY ROUTES */}
+                {/* PATIENT PROTECTED ROUTES */}
                 <Route
                     path="/book/:doctorId"
                     element={
@@ -36,7 +41,7 @@ function App() {
                     }
                 />
 
-                {/* DOCTOR ONLY ROUTE */}
+                {/* DOCTOR PROTECTED ROUTE */}
                 <Route
                     path="/doctor-dashboard"
                     element={
@@ -46,7 +51,7 @@ function App() {
                     }
                 />
 
-                {/* ADMIN ONLY ROUTE */}
+                {/* ADMIN PROTECTED ROUTE */}
                 <Route
                     path="/admin-dashboard"
                     element={

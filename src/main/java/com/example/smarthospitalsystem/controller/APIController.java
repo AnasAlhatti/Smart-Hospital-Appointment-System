@@ -13,7 +13,6 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true") // Allow React to access this
 public class APIController {
 
     @Autowired

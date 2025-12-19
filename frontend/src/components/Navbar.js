@@ -7,6 +7,13 @@ const Navbar = () => {
     const [user, setUser] = useState(null);
     const location = useLocation();
 
+    // 1. Get the API URL from the environment (or default to localhost)
+    const API_URL = process.env.REACT_APP_API_URL || 'https://localhost:8080/api';
+
+    // 2. Derive the Root URL (Remove '/api' from the end)
+    // If API is 'https://localhost:8080/api', this becomes 'https://localhost:8080'
+    const SERVER_URL = API_URL.replace('/api', '');
+
     useEffect(() => {
         api.get('/auth/me')
             .then(res => setUser(res.data))
@@ -40,12 +47,17 @@ const Navbar = () => {
                         <div className="d-flex align-items-center bg-white bg-opacity-25 rounded-pill px-3 py-1">
                             <i className="bi bi-person-circle text-white me-2"></i>
                             <span className="text-white me-3 small text-uppercase fw-bold">{user.username}</span>
-                            <a className="btn btn-sm btn-light text-primary fw-bold rounded-pill" href="http://localhost:8080/logout">
+
+                            {/* DYNAMIC LOGOUT LINK */}
+                            <a className="btn btn-sm btn-light text-primary fw-bold rounded-pill" href={`${SERVER_URL}/logout`}>
                                 Logout
                             </a>
                         </div>
                     ) : (
-                        <a className="btn btn-light rounded-pill px-4 fw-bold" href="http://localhost:8080/login">Login</a>
+                        /* DYNAMIC LOGIN LINK */
+                        <a className="btn btn-light rounded-pill px-4 fw-bold" href={`${SERVER_URL}/login`}>
+                            Login
+                        </a>
                     )}
                 </div>
             </div>
